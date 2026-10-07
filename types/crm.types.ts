@@ -27,12 +27,12 @@ export type IdMap = { [sourceId: string]: string };
 /** The parts of a HubSpot property definition the tool cares about. */
 export interface PropertyDefinition {
   name: string;
-  type: string;                     // "string", "enumeration", "number", ...
+  type: string; // "string", "enumeration", "number", ...
   calculated: boolean;
-  readOnlyValue: boolean;           // from modificationMetadata.readOnlyValue
+  readOnlyValue: boolean; // from modificationMetadata.readOnlyValue
   hasUniqueValue: boolean;
-  referencesOwner: boolean;         // referencedObjectType === "OWNER"
-  optionValues: string[];           // empty unless type is "enumeration"
+  referencesOwner: boolean; // referencedObjectType === "OWNER"
+  optionValues: string[]; // empty unless type is "enumeration"
 }
 
 /** One HubSpot association type, as the v4 API describes it. */
@@ -41,3 +41,5 @@ export interface AssociationType {
   typeId: number;
   label: string | null;
 }
+
+export type PrimaryExcedeProperty = string;

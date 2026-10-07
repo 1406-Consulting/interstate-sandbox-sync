@@ -6,7 +6,12 @@
  * Read-only and calculated properties are left out because HubSpot rejects writes to them.
  * HubSpot returns every value as a string, or null when empty; the HubSpot type is noted per field.
  */
+import type { PrimaryExcedeProperty } from "./crm.types.ts";
+
 export interface Deal {
+  /** TS (string) · upsert key */
+  //NOTE: cannot be null
+  excede_customer_sales_ts: PrimaryExcedeProperty;
   // ---- HubSpot standard properties (41) ----
   /** Amount (number) */
   amount: string | null;
@@ -63,7 +68,9 @@ export interface Deal {
   /** Global Term Line Item Recurring Billing Start Date (string) */
   hs_line_item_global_term_hs_recurring_billing_start_date: string | null;
   /** Global Term Line Item Recurring Billing Start Date Enabled (bool) */
-  hs_line_item_global_term_hs_recurring_billing_start_date_enabled: string | null;
+  hs_line_item_global_term_hs_recurring_billing_start_date_enabled:
+    | string
+    | null;
   /** Global Term Line Item Recurring Billing Frequency (string) */
   hs_line_item_global_term_recurringbillingfrequency: string | null;
   /** Global Term Line Item Recurring Billing Frequency Enabled (bool) */
@@ -104,8 +111,6 @@ export interface Deal {
   excede_customer_sales_origin: string | null;
   /** Prepared Preferred Customer Contact Id (string) */
   excede_customer_sales_preferred_contact_id: string | null;
-  /** TS (string) · upsert key */
-  excede_customer_sales_ts: string | null;
   /** Amt Cost (excede_lease_rental_bill_amt_cost) (number) */
   excede_lease_rental_bill_amt_cost: string | null;
   /** Amt Disc (number) */
