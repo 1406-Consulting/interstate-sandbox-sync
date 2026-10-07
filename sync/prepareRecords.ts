@@ -72,7 +72,12 @@ export function prepareRecords(
         properties[name] = value;
       }
     }
-    prepared.push({ sourceId: record.id, properties });
+    // HubSpot datetime properties accept ISO 8601 strings.
+    const syncDate: Date = new Date();
+    prepared.push({
+      sourceId: record.id,
+      properties: { ...properties, prod_sync_date: syncDate.toISOString() },
+    });
   }
   return prepared;
 }
