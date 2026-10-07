@@ -78,4 +78,4 @@ The property lists were generated from production's `GET /crm/v3/properties/{typ
 `STAGES.md` is the source of truth for stage progress and open items. Read it before starting work, and tick items off as they land. Two traps to know about:
 
 - **Env files:** the CLI defaults read `interstate/.env.prod` and `interstate/.env.sandbox`, four levels up. The workspace `.env.sandbox` defines `SERVICE_KEY=`, not `HUBSPOT_TOKEN=`, so live runs pass the repo-local files instead: `--source-env .env.prod --target-env .env.sandbox`. Both are gitignored.
-- **`prod_sync_date` in the sandbox:** the property exists on deals as a text field but not on companies. Any `--apply` run that upserts companies fails until the property is created.
+- **`prod_sync_date` in the sandbox:** each object type needs this text property before its stage can `--apply`, or the upsert fails. Deals and companies have it.

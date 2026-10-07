@@ -16,7 +16,7 @@ Moved ahead of contacts on 2026-10-07. Production has 1 contact and no deal↔co
 - [x] Upsert companies on `excede_customer_id`
 - [x] Copy deal→company links, both the unlabeled one and "Primary", using the sandbox's own link type IDs; dry run creates none
 - [x] Live dry run (2026-10-07): 3 companies and 3 links would be created. `hs_recent_news` isn't writable in the sandbox, so it's left out.
-- [ ] Sandbox needs a `prod_sync_date` property on companies. It returns 404 today, so `--apply` would fail.
+- [x] Created `prod_sync_date` (text, Company information group) on sandbox companies (2026-10-07)
 - [ ] Live `--apply`, then `--apply` again creates 0
 
 ## 3. Contacts: not started
@@ -37,6 +37,6 @@ Moved ahead of contacts on 2026-10-07. Production has 1 contact and no deal↔co
 - [ ] The N newest products on their own. No production line item has `hs_product_id`.
 
 ## Open items
-- [ ] Sandbox must have a `prod_sync_date` property on every copied object type. Deals already have it, as a text field. Companies don't.
+- [ ] Sandbox needs a `prod_sync_date` text property on each object type before its stage can `--apply`. Deals and companies have it; contacts, vehicles, line items and products don't yet.
 - [ ] Owner and pipeline/stage remapping (contract `remaps`) is not implemented. The values are sent as they are.
 - [ ] Decide whether `--deals N` copies N of each deal type, or the N newest overall. Today the newest are all lease rental bills.
