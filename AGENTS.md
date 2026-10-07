@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-This is a one-way copy tool. It reads Interstate HubSpot records from production (portal 51580259) and upserts them into the Interstate standard sandbox (portal 52133352), matched on unique Excede ID properties so that re-runs update records instead of duplicating them. It is built in stages, one object type each: deals → companies → contacts → vehicles → line items → products. **Stages 1 (deals), 2 (companies, with deal→company links) and 3 (contacts, with deal→contact and company→contact links) are implemented.** `STAGES.md` is the running checklist. Keep it updated as stages progress.
+This is a one-way copy tool. It reads Interstate HubSpot records from production (portal 51580259) and upserts them into the Interstate standard sandbox (portal 52133352), matched on unique Excede ID properties so that re-runs update records instead of duplicating them. It is built in stages, one object type each: deals → companies → contacts → vehicles → line items → products. **Stages 1 (deals) and 2 (companies, with deal→company links) are implemented.** `STAGES.md` is the running checklist. Keep it updated as stages progress.
 
 Remote: `github.com/jkhl-1406/interstate-sandbox-sync`. The repo is **public**, so never commit tokens or production data. `.gitignore` covers `.env*`, `*.csv`, `*.xlsx` and `runs/`.
 
@@ -14,7 +14,6 @@ Remote: `github.com/jkhl-1406/interstate-sandbox-sync`. The repo is **public**, 
 node main.ts --deals 3                 # dry run: reads both portals, writes nothing
 node main.ts --deals 3 --apply         # writes to the sandbox
 node main.ts --deals 3 --companies 3   # stage 2: companies linked to those deals, plus the links
-node main.ts --deals 3 --contacts 3    # stage 3: contacts linked to those deals (and to the companies, if --companies is set), plus the links
 node main.ts --deals 3 --source-env .env.prod --target-env .env.sandbox   # use the repo-local env files
 
 node --test                            # all tests
@@ -29,12 +28,12 @@ Node 24 runs the `.ts` files directly through type stripping. There is no build 
 
 ## Architecture
 
-`main.ts` checks the portals, then runs one stage per object type. A stage is a small function in `main.ts` (`copyDeals`, `copyCompanies`, `copyContacts`). Each one strings together the steps in `sync/steps/`:
+`main.ts` checks the portals, then runs one stage per object type. A stage is a small function in `main.ts` (`copyDeals`, `copyCompanies`). Each one strings together the steps in `sync/steps/`:
 
 1. **`verifyPortals`** runs once per run. It reads `/account-info/v3/details` for both tokens. The rule in `logic/portalRules.ts` refuses the run unless source = 51580259 and target = 52133352. This, together with the read-only production client, is what keeps production safe.
 2. **Fetch.**
    - `fetchRecentRecords` searches for the N newest records (sorted by `createdate`) and batch-reads them with every property in the contract. Deals use this as the anchor.
-   - `fetchLinkedRecords` reads v4 associations from one or more earlier stages' records (`LinkSource`s). It combines their links in order, collects up to N linked IDs without repeats (the cap is shared across sources), and batch-reads them once. It also returns one `LinkSet` per source so the links aren't read twice. Contacts use two sources: deals first, then companies (`copyContacts`).
+   - `fetchLinkedRecords` reads v4 associations from the previous stage's records. It collects up to N linked IDs and batch-reads them. It also returns the links so they aren't read twice.
 3. **`prepareForSandbox`** reads the sandbox's property definitions and keeps only filled-in values for properties the sandbox can write. It stamps every record with `prod_sync_date`, one ISO timestamp per run, passed in from `main.ts`.
 4. **`upsertRecords`** picks each record's key, which is the first filled-in property in the contract's `keyPriority`. Records with no key are skipped and reported. It then calls `POST /crm/v3/objects/{type}/batch/upsert`, 100 at a time, with the production ID in `objectWriteTraceId`, and maps HubSpot's results back to production IDs through that field. The result's `idMap` maps production IDs to sandbox IDs, and `sentIds` lists what was sent. A dry run sends nothing.
 5. **`copyLinks`** reads the sandbox's link types (`/crm/v4/associations/{from}/{to}/labels`) and translates each production link using the two `idMap`s. HUBSPOT_DEFINED types keep their ID; custom types are matched by label. A link is created only if both of its records were copied. A dry run has no sandbox IDs, so it stands in `sentIds` (`placeholderIdMap`) to count the links it would create.

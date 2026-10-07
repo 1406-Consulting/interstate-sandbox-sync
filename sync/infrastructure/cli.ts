@@ -4,7 +4,6 @@
  *   node main.ts --deals 3            dry run: shows what would be sent
  *   node main.ts --deals 3 --apply    writes to the sandbox
  *   node main.ts --deals 3 --companies 3   also copies companies linked to those deals
- *   node main.ts --deals 3 --contacts 3    also copies contacts linked to those deals (or companies)
  */
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -37,7 +36,6 @@ export function parseRunOptions(argv: string[]): RunOptions {
     options: {
       deals: { type: "string" },
       companies: { type: "string", default: "0" },
-      contacts: { type: "string", default: "0" },
       apply: { type: "boolean", default: false },
       "source-env": { type: "string", default: DEFAULT_SOURCE_ENV },
       "target-env": { type: "string", default: DEFAULT_TARGET_ENV },
@@ -50,12 +48,11 @@ export function parseRunOptions(argv: string[]): RunOptions {
   }
   const deals = readCount("deals", rawDeals, 1);
   const companies = readCount("companies", parsed.values.companies, 0);
-  const contacts = readCount("contacts", parsed.values.contacts, 0);
 
   return {
     limits: {
       deals,
-      contacts,
+      contacts: 0,
       companies,
       vehicles: 0,
       line_items: 0,

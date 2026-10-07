@@ -11,11 +11,3 @@ test("--deals sets the count; only --apply turns on writing", () => {
   assert.equal(dryRun.apply, false);
   assert.equal(applied.apply, true);
 });
-
-test("--contacts sets the contact limit and defaults to 0", () => {
-  const withContacts = parseRunOptions(["--deals", "3", "--contacts", "5"]);
-  const without = parseRunOptions(["--deals", "3"]);
-
-  assert.equal(withContacts.limits.contacts, 5);
-  assert.equal(without.limits.contacts, 0);
-});
