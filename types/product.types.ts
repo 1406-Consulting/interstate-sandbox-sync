@@ -6,7 +6,12 @@
  * Read-only and calculated properties are left out because HubSpot rejects writes to them.
  * HubSpot returns every value as a string, or null when empty; the HubSpot type is noted per field.
  */
+import type { PrimaryExcedeProperty } from "./crm.types.ts";
+
 export interface Product {
+  /** Id (string) · upsert key */
+  //NOTE: cannot be null
+  excede_part_id: PrimaryExcedeProperty;
   // ---- HubSpot standard properties (28) ----
   /** Create Date (datetime) */
   createdate: string | null;
@@ -108,8 +113,6 @@ export interface Product {
   excede_part_date_tape: string | null;
   /** Date Update (datetime) */
   excede_part_date_update: string | null;
-  /** Id (string) · upsert key */
-  excede_part_id: string | null;
   /** Not Id (string) */
   excede_part_not_id: string | null;
   /** Order Pkg Min (string) */

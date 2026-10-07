@@ -6,7 +6,12 @@
  * Read-only and calculated properties are left out because HubSpot rejects writes to them.
  * HubSpot returns every value as a string, or null when empty; the HubSpot type is noted per field.
  */
+import type { PrimaryExcedeProperty } from "./crm.types.ts";
+
 export interface Company {
+  /** Id (string) · upsert key */
+  //NOTE: cannot be null
+  excede_customer_id: PrimaryExcedeProperty;
   // ---- HubSpot standard properties (69) ----
   /** About Us (string) */
   about_us: string | null;
@@ -254,8 +259,6 @@ export interface Company {
   excede_customer_emp_id_spn: string | null;
   /** Fl Sls Typ Id (string) */
   excede_customer_fl_sls_typ_id: string | null;
-  /** Id (string) · upsert key */
-  excede_customer_id: string | null;
   /** Inactive (string) */
   excede_customer_inactive: string | null;
   /** Mem Typ Id (string) */
