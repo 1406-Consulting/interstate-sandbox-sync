@@ -69,8 +69,7 @@ export interface Deal {
   hs_line_item_global_term_hs_recurring_billing_start_date: string | null;
   /** Global Term Line Item Recurring Billing Start Date Enabled (bool) */
   hs_line_item_global_term_hs_recurring_billing_start_date_enabled:
-    | string
-    | null;
+    string | null;
   /** Global Term Line Item Recurring Billing Frequency (string) */
   hs_line_item_global_term_recurringbillingfrequency: string | null;
   /** Global Term Line Item Recurring Billing Frequency Enabled (bool) */

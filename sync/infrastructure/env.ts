@@ -4,9 +4,8 @@
 import { readFileSync } from "node:fs";
 
 /** Parses KEY=value lines. Blank lines and # comments are ignored. */
-export function readEnvFile(path: string): { [name: string]: string } {
+export function parseEnvText(text: string): { [name: string]: string } {
   const values: { [name: string]: string } = {};
-  const text = readFileSync(path, "utf8");
   const lines = text.split("\n");
 
   for (const line of lines) {
@@ -35,7 +34,8 @@ export function readEnvFile(path: string): { [name: string]: string } {
 
 /** Returns HUBSPOT_TOKEN from an env file, or throws if it is missing. */
 export function readToken(path: string): string {
-  const values = readEnvFile(path);
+  const text = readFileSync(path, "utf8");
+  const values = parseEnvText(text);
   const token = values.HUBSPOT_TOKEN;
   if (token === undefined || token === "") {
     throw new Error(`no HUBSPOT_TOKEN in ${path}`);

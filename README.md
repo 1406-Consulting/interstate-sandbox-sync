@@ -45,21 +45,28 @@ Type declarations and code that runs are kept apart:
 
 - **`types/`** holds type declarations only. Every file ends in `.types.ts` and exports no values.
   - `crm.types.ts`: object kinds, records, property definitions and association types.
-  - `hubspotClient.types.ts`: the HubSpot client and per-portal context.
+  - `hubspotClient.types.ts`: the HubSpot client, its options, and per-portal context.
+  - `hubspotApi.types.ts`: raw response bodies from the HubSpot endpoints the sync reads.
   - `run.types.ts`: command-line options, per-type results and the run summary.
   - `objectContract.types.ts`: the shape every object contract follows.
-  - `upsert.types.ts`: a record ready to write, the upsert input built from it, and HubSpot's batch upsert response.
+  - `upsert.types.ts`: a record ready to write, the upsert input built from it, HubSpot's batch upsert response, and the tally of results.
+  - `fakeHubSpot.types.ts`: shapes used by the test-only fake client.
   - `deal.types.ts`, `contact.types.ts`, `company.types.ts`, `vehicle.types.ts`, `lineItem.types.ts`, `product.types.ts`: one record interface per object type. Each lists every writable production property with its HubSpot label and type.
 - **`contracts/`** holds the values built from those types, one file per object type. Each file has the property-name list used in API calls and the object's contract: selection, upsert keys, remapping and links. `allContracts.ts` lists all six in stage order.
-- **`main.ts`** runs the copy. It checks the portals, reads the newest production deals, keeps only the properties the sandbox can write, and upserts the deals.
-- **`sync/`** holds the code `main.ts` calls, with the trust tests beside it:
-  - `cli.ts` and `env.ts`: flags, and reading `HUBSPOT_TOKEN` from the env files.
-  - `hubspotClient.ts`: calls HubSpot with retries. The production client refuses every write.
-  - `portalGuard.ts`: refuses to run unless the source is production and the target is the sandbox.
-  - `fetchRecords.ts`: reads the N newest records with every property in the contract.
-  - `prepareRecords.ts`: drops empty values and properties the sandbox can't write.
-  - `upsert.ts`: keys each record on its Excede ID and sends it in batches of 100. A dry run sends nothing.
-  - `objectPath.ts` and `chunk.ts`: small helpers.
+- **`main.ts`** runs the four steps in order: verify portals, read production, prepare for the sandbox, upsert.
+- **`sync/`** holds the code `main.ts` calls, split by what each part is responsible for. Each file has its tests beside it.
+  - **`logic/`** holds the business rules. These are pure functions with no network calls and no file access, so they're easy to test and reason about.
+    - `portalRules.ts`: only production may be the source and only the sandbox the target.
+    - `prepareRecords.ts`: which properties are writable, what gets sent, and the `prod_sync_date` stamp.
+    - `upsertKeys.ts`: which Excede ID each record is matched on.
+    - `upsertTally.ts`: totals HubSpot's upsert responses and stops on any error.
+  - **`infrastructure/`** talks to the outside world.
+    - `hubspotClient.ts`: the only code that calls HubSpot. It retries on rate limits, and the production client refuses every write.
+    - `hubspotApi.ts`: one function per HubSpot endpoint, covering URLs, paging and the 100-per-batch limit.
+    - `env.ts` and `cli.ts`: read tokens from the env files, and flags from the command line.
+    - `chunk.ts`: splits lists into batches.
+  - **`steps/`** holds the run itself. Each step calls infrastructure and applies the logic: `verifyPortals.ts`, `fetchRecentRecords.ts`, `prepareForSandbox.ts` and `upsertRecords.ts`.
+  - `fakeHubSpotClient.ts`: a test-only HubSpot client that records calls and never touches the network.
 
 The property lists were generated from production's property definitions on 2026-10-07. Read-only and calculated properties are left out, because HubSpot rejects writes to them.
 

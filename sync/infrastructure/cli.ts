@@ -6,17 +6,17 @@
  */
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import type { RunOptions } from "../types/run.types.ts";
+import type { RunOptions } from "../../types/run.types.ts";
 
 const PRODUCTION_PORTAL_ID = 51580259;
 const SANDBOX_PORTAL_ID = 52133352;
 
-/** The env files live in the interstate/ workspace folder, three levels up. */
+/** The env files live in the interstate/ workspace folder, four levels up. */
 const DEFAULT_SOURCE_ENV = fileURLToPath(
-  new URL("../../../.env.prod", import.meta.url),
+  new URL("../../../../.env.prod", import.meta.url),
 );
 const DEFAULT_TARGET_ENV = fileURLToPath(
-  new URL("../../../.env.sandbox", import.meta.url),
+  new URL("../../../../.env.sandbox", import.meta.url),
 );
 
 /** Reads a whole-number flag of at least 1. */

@@ -5,12 +5,7 @@
 
 /** The six object types this tool copies. */
 export type ObjectKind =
-  | "deals"
-  | "contacts"
-  | "companies"
-  | "vehicles"
-  | "line_items"
-  | "products";
+  "deals" | "contacts" | "companies" | "vehicles" | "line_items" | "products";
 
 /** A property name mapped to its value, exactly as HubSpot returns it. */
 export type PropertyValues = { [propertyName: string]: string | null };

@@ -9,18 +9,18 @@
  */
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { DEAL_CONTRACT } from "../contracts/deal.ts";
-import type { PropertyValues } from "../types/crm.types.ts";
+import { DEAL_CONTRACT } from "../../contracts/deal.ts";
+import type { PropertyValues } from "../../types/crm.types.ts";
 import type {
   HubSpotClient,
   PortalContext,
-} from "../types/hubspotClient.types.ts";
+} from "../../types/hubspotClient.types.ts";
 import type {
   BatchUpsertResponse,
   PreparedRecord,
   UpsertInput,
-} from "../types/upsert.types.ts";
-import { upsertRecords } from "./upsert.ts";
+} from "../../types/upsert.types.ts";
+import { upsertRecords } from "./upsertRecords.ts";
 
 /** An in-memory sandbox that answers batch upserts like HubSpot does. */
 function createFakeSandbox() {

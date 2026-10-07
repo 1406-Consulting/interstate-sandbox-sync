@@ -5,7 +5,11 @@
  * Shapes follow HubSpot's batch upsert reference
  * (POST /crm/v3/objects/{objectType}/batch/upsert).
  */
-import type { PrimaryExcedeProperty, PropertyValues } from "./crm.types.ts";
+import type {
+  IdMap,
+  PrimaryExcedeProperty,
+  PropertyValues,
+} from "./crm.types.ts";
 
 /** A record ready to write: its production ID plus sandbox-ready properties. */
 export interface PreparedRecord {
@@ -35,4 +39,11 @@ export interface UpsertResponseRecord {
 export interface BatchUpsertResponse {
   results: UpsertResponseRecord[];
   errors?: { message: string }[];
+}
+
+/** What a set of batch upsert responses adds up to. */
+export interface UpsertTally {
+  created: number;
+  updated: number;
+  idMap: IdMap; // production ID -> sandbox ID
 }

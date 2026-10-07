@@ -5,36 +5,32 @@
  *   node main.ts --deals 3 --apply    writes to the sandbox
  *
  * The run:
- *   1. check both tokens point at the right portals
- *   2. read the N newest deals from production
- *   3. keep only the properties the sandbox can accept
- *   4. upsert them into the sandbox, matched on their Excede key
+ *   1. verifyPortals      check both tokens point at the right portals
+ *   2. fetchRecentRecords read the N newest deals from production
+ *   3. prepareForSandbox  keep only what the sandbox accepts, stamp the sync time
+ *   4. upsertRecords      write them, matched on their Excede key
  */
 import { DEAL_CONTRACT } from "./contracts/deal.ts";
 import type { PortalContext } from "./types/hubspotClient.types.ts";
 import type { UpsertResult } from "./types/run.types.ts";
-import { parseRunOptions } from "./sync/cli.ts";
-import { readToken } from "./sync/env.ts";
-import { fetchRecentRecords } from "./sync/fetchRecords.ts";
-import { createClient } from "./sync/hubspotClient.ts";
-import { verifyPortals } from "./sync/portalGuard.ts";
-import {
-  fetchWritablePropertyNames,
-  listMissing,
-  prepareRecords,
-} from "./sync/prepareRecords.ts";
-import { upsertRecords } from "./sync/upsert.ts";
+import { parseRunOptions } from "./sync/infrastructure/cli.ts";
+import { readToken } from "./sync/infrastructure/env.ts";
+import { createClient } from "./sync/infrastructure/hubspotClient.ts";
+import { fetchRecentRecords } from "./sync/steps/fetchRecentRecords.ts";
+import { prepareForSandbox } from "./sync/steps/prepareForSandbox.ts";
+import { upsertRecords } from "./sync/steps/upsertRecords.ts";
+import { verifyPortals } from "./sync/steps/verifyPortals.ts";
 
 /** Prints the end-of-run summary. */
 function printSummary(result: UpsertResult, apply: boolean): void {
   console.log("");
-  console.log(
-    `[summary] ${result.kind}: ${apply ? "sent" : "would send"} ${result.sent}`,
-  );
   if (apply) {
+    console.log(`[summary] ${result.kind}: sent ${result.sent}`);
     console.log(
       `[summary] created ${result.created}, updated ${result.updated}`,
     );
+  } else {
+    console.log(`[summary] ${result.kind}: would send ${result.sent}`);
   }
   if (result.skippedNoKey.length > 0) {
     console.log(
@@ -45,9 +41,11 @@ function printSummary(result: UpsertResult, apply: boolean): void {
 
 async function main(): Promise<void> {
   const options = parseRunOptions(process.argv.slice(2));
-  console.log(
-    `[run] ${options.apply ? "APPLY: writing to the sandbox" : "dry run: nothing will be written"}`,
-  );
+  if (options.apply) {
+    console.log("[run] APPLY: writing to the sandbox");
+  } else {
+    console.log("[run] dry run: nothing will be written");
+  }
 
   const sourceClient = createClient({
     token: readToken(options.sourceEnvPath),
@@ -83,15 +81,14 @@ async function main(): Promise<void> {
     options.limits.deals,
   );
 
-  // 3. Keep only what the sandbox can accept.
-  const writable = await fetchWritablePropertyNames(target, DEAL_CONTRACT.kind);
-  const missing = listMissing(DEAL_CONTRACT.properties, writable);
-  if (missing.length > 0) {
-    console.log(
-      `[deals] ${missing.length} contract properties are not writable in the sandbox and will be left out: ${missing.slice(0, 10).join(", ")}${missing.length > 10 ? ", ..." : ""}`,
-    );
-  }
-  const prepared = prepareRecords(records, writable);
+  // 3. Keep only what the sandbox can accept; one sync time for the whole run.
+  const syncedAt = new Date();
+  const prepared = await prepareForSandbox(
+    target,
+    DEAL_CONTRACT,
+    records,
+    syncedAt,
+  );
 
   // 4. Upsert into the sandbox.
   const result = await upsertRecords(

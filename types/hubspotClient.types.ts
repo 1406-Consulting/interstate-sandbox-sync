@@ -11,7 +11,18 @@ export interface HubSpotClient {
   /** Any call that does not change data, including POST search and batch read. */
   read<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T>;
   /** Any call that changes data. Throws unless the client was built with allowWrites. */
-  write<T>(method: "POST" | "PATCH" | "PUT", path: string, body?: unknown): Promise<T>;
+  write<T>(
+    method: "POST" | "PATCH" | "PUT",
+    path: string,
+    body?: unknown,
+  ): Promise<T>;
+}
+
+/** What `createClient` needs to build a client for one portal. */
+export interface ClientOptions {
+  token: string;
+  role: PortalRole;
+  allowWrites: boolean; // true only for the sandbox when --apply is passed
 }
 
 /** One portal's connection plus the IDs that differ per portal. */
@@ -19,5 +30,5 @@ export interface PortalContext {
   role: PortalRole;
   portalId: number;
   client: HubSpotClient;
-  vehiclesTypeId: string;           // e.g. "2-70142906" in production
+  vehiclesTypeId: string; // e.g. "2-70142906" in production
 }

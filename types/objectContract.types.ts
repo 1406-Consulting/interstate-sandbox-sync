@@ -7,9 +7,9 @@ import type { ObjectKind } from "./crm.types.ts";
 
 /** How a type's records are chosen. */
 export type SelectionMode =
-  | "anchor"        // the N most recently created records (deals only)
-  | "linked"        // records linked to already-selected records, capped at N
-  | "independent";  // the N most recently created records, no links (products)
+  | "anchor" // the N most recently created records (deals only)
+  | "linked" // records linked to already-selected records, capped at N
+  | "independent"; // the N most recently created records, no links (products)
 
 /** Special value conversions needed because IDs differ between portals. */
 export type Remap = "owners" | "pipeline";
@@ -25,7 +25,7 @@ export interface LinkContract {
 
 export interface ObjectContract {
   kind: ObjectKind;
-  stage: number;                    // build and test order, 1 to 6
+  stage: number; // build and test order, 1 to 6
   selection: SelectionMode;
   /** Records reached through these types' links (only for "linked"). */
   linkedFrom: ObjectKind[];

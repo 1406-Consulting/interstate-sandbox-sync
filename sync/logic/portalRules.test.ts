@@ -4,8 +4,8 @@
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { RunOptions } from "../types/run.types.ts";
-import { findPortalProblem } from "./portalGuard.ts";
+import type { RunOptions } from "../../types/run.types.ts";
+import { findPortalProblem } from "./portalRules.ts";
 
 const PRODUCTION = 51580259;
 const SANDBOX = 52133352;

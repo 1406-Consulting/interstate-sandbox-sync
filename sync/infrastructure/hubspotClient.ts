@@ -1,21 +1,16 @@
 /**
- * The only module that calls HubSpot. Wraps fetch with a retry for rate
- * limits and a write guard: a client built without write access refuses
- * every write before it reaches the network.
+ * The only module that calls fetch. Wraps it with a retry for rate limits
+ * and a write guard: a client built without write access refuses every write
+ * before it reaches the network.
  */
 import type {
+  ClientOptions,
   HubSpotClient,
   PortalRole,
-} from "../types/hubspotClient.types.ts";
+} from "../../types/hubspotClient.types.ts";
 
 const BASE_URL = "https://api.hubapi.com";
 const MAX_ATTEMPTS = 5;
-
-export interface ClientOptions {
-  token: string;
-  role: PortalRole;
-  allowWrites: boolean;
-}
 
 /** Waits the given number of milliseconds. */
 function sleep(milliseconds: number): Promise<void> {
