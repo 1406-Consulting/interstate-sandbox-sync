@@ -153,16 +153,11 @@ export const CONTACT_PROPERTIES: (keyof Contact)[] = [
 
 export const CONTACT_CONTRACT: ObjectContract = {
   kind: "contacts",
-  stage: 2,
+  stage: 3,
   selection: "linked",
-  linkedFrom: ["deals"],
-  keyPriority: [
-    "excede_customer_contact_id",
-    "email",
-  ],
+  linkedFrom: ["deals", "companies"],
+  keyPriority: ["excede_customer_contact_id", "email"],
   properties: CONTACT_PROPERTIES,
   remaps: ["owners"],
-  links: [
-    { to: "deals" },
-  ],
+  links: [{ to: "deals" }, { to: "companies" }],
 };

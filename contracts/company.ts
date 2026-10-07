@@ -162,16 +162,11 @@ export const COMPANY_PROPERTIES: (keyof Company)[] = [
 
 export const COMPANY_CONTRACT: ObjectContract = {
   kind: "companies",
-  stage: 3,
+  stage: 2,
   selection: "linked",
-  linkedFrom: ["deals", "contacts"],
-  keyPriority: [
-    "excede_customer_id",
-  ],
+  linkedFrom: ["deals"],
+  keyPriority: ["excede_customer_id"],
   properties: COMPANY_PROPERTIES,
   remaps: ["owners"],
-  links: [
-    { to: "deals" },
-    { to: "contacts" },
-  ],
+  links: [{ to: "deals" }],
 };

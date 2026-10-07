@@ -3,6 +3,7 @@
  *
  *   node main.ts --deals 3            dry run: shows what would be sent
  *   node main.ts --deals 3 --apply    writes to the sandbox
+ *   node main.ts --deals 3 --companies 3   also copies companies linked to those deals
  */
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -19,12 +20,12 @@ const DEFAULT_TARGET_ENV = fileURLToPath(
   new URL("../../../../.env.sandbox", import.meta.url),
 );
 
-/** Reads a whole-number flag of at least 1. */
-function readCount(flag: string, raw: string): number {
+/** Reads a whole-number flag of at least `minimum`. */
+function readCount(flag: string, raw: string, minimum: number): number {
   const count = Number(raw);
-  const isValid = Number.isInteger(count) && count >= 1;
+  const isValid = Number.isInteger(count) && count >= minimum;
   if (!isValid) {
-    throw new Error(`--${flag} must be a whole number of at least 1`);
+    throw new Error(`--${flag} must be a whole number of at least ${minimum}`);
   }
   return count;
 }
@@ -34,6 +35,7 @@ export function parseRunOptions(argv: string[]): RunOptions {
     args: argv,
     options: {
       deals: { type: "string" },
+      companies: { type: "string", default: "0" },
       apply: { type: "boolean", default: false },
       "source-env": { type: "string", default: DEFAULT_SOURCE_ENV },
       "target-env": { type: "string", default: DEFAULT_TARGET_ENV },
@@ -44,13 +46,14 @@ export function parseRunOptions(argv: string[]): RunOptions {
   if (rawDeals === undefined) {
     throw new Error("--deals is required, e.g. --deals 3");
   }
-  const deals = readCount("deals", rawDeals);
+  const deals = readCount("deals", rawDeals, 1);
+  const companies = readCount("companies", parsed.values.companies, 0);
 
   return {
     limits: {
       deals,
       contacts: 0,
-      companies: 0,
+      companies,
       vehicles: 0,
       line_items: 0,
       products: 0,

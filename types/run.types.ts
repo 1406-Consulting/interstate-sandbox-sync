@@ -3,6 +3,7 @@
  * end-of-run summary. Type declarations only.
  */
 import type { IdMap, ObjectKind } from "./crm.types.ts";
+import type { PortalContext } from "./hubspotClient.types.ts";
 
 /** How many records of each type to copy. 0 means skip that type. */
 export interface TypeLimits {
@@ -43,6 +44,7 @@ export interface ValueDrop {
 export interface UpsertResult {
   kind: ObjectKind;
   sent: number; // records sent to HubSpot (dry run: would send)
+  sentIds: string[]; // production IDs of the records sent (dry run: would send)
   created: number; // 0 in a dry run
   updated: number; // 0 in a dry run
   skippedNoKey: string[]; // production IDs with no key filled in
@@ -65,4 +67,12 @@ export interface RunSummary {
   associations: AssociationResult[];
   /** Values left out while mapping properties, before the upsert. */
   drops: ValueDrop[];
+}
+
+/** What every stage of a run needs: both portals, the options, and one sync time. */
+export interface RunContext {
+  source: PortalContext;
+  target: PortalContext;
+  options: RunOptions;
+  syncedAt: Date;
 }

@@ -4,6 +4,14 @@
  * which records should be copied or why.
  */
 import type {
+  AssociationCreateInput,
+  AssociationLink,
+  AssociationTypesResponse,
+  BatchAssociationCreateResponse,
+  BatchAssociationReadResponse,
+} from "../../types/association.types.ts";
+import type {
+  AssociationType,
   CrmRecord,
   ObjectKind,
   PropertyDefinition,
@@ -159,6 +167,75 @@ export async function batchUpsert(
     const response = await client.write<BatchUpsertResponse>(
       "POST",
       `/crm/v3/objects/${path}/batch/upsert`,
+      { inputs: batch },
+    );
+    responses.push(response);
+  }
+  return responses;
+}
+
+/**
+ * Reads every link from the given records to one other object type,
+ * 100 records at a time. Each link carries all of its link types.
+ */
+export async function batchReadAssociations(
+  client: HubSpotClient,
+  fromPath: string,
+  toPath: string,
+  fromIds: string[],
+): Promise<AssociationLink[]> {
+  const links: AssociationLink[] = [];
+  const idBatches = chunk(fromIds, BATCH_SIZE);
+
+  for (const idBatch of idBatches) {
+    const inputs = idBatch.map((id) => {
+      return { id };
+    });
+    const response = await client.read<BatchAssociationReadResponse>(
+      "POST",
+      `/crm/v4/associations/${fromPath}/${toPath}/batch/read`,
+      { inputs },
+    );
+    for (const result of response.results) {
+      for (const target of result.to) {
+        links.push({
+          fromId: result.from.id,
+          toId: String(target.toObjectId),
+          types: target.associationTypes,
+        });
+      }
+    }
+  }
+  return links;
+}
+
+/** Lists the link types a portal defines from one object type to another. */
+export async function getAssociationTypes(
+  client: HubSpotClient,
+  fromPath: string,
+  toPath: string,
+): Promise<AssociationType[]> {
+  const response = await client.read<AssociationTypesResponse>(
+    "GET",
+    `/crm/v4/associations/${fromPath}/${toPath}/labels`,
+  );
+  return response.results;
+}
+
+/** Creates links 100 at a time and returns HubSpot's response for each batch. */
+export async function batchCreateAssociations(
+  client: HubSpotClient,
+  fromPath: string,
+  toPath: string,
+  inputs: AssociationCreateInput[],
+): Promise<BatchAssociationCreateResponse[]> {
+  const responses: BatchAssociationCreateResponse[] = [];
+  const batches = chunk(inputs, BATCH_SIZE);
+
+  for (const batch of batches) {
+    const response = await client.write<BatchAssociationCreateResponse>(
+      "POST",
+      `/crm/v4/associations/${fromPath}/${toPath}/batch/create`,
       { inputs: batch },
     );
     responses.push(response);

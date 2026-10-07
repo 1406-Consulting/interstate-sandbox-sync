@@ -8,17 +8,7 @@ Data only flows from production to the sandbox. The production client cannot wri
 
 ## Status
 
-The script is built one object type per stage. Each stage must be tested and approved before the next begins.
-
-| Stage | Object type | Status |
-|---|---|---|
-| 0 | Type contracts (`types/`, `contracts/`) | In review |
-| 1 | Deals | Built, waiting on the sandbox token for a live test |
-| 2 | Contacts | Not started |
-| 3 | Companies | Not started |
-| 4 | Vehicles | Not started |
-| 5 | Line items | Not started |
-| 6 | Products | Not started |
+The script is built one object type per stage: deals, companies, contacts, vehicles, line items, then products. [`STAGES.md`](STAGES.md) tracks each stage's checklist and the open items.
 
 ## Requirements
 
@@ -34,10 +24,10 @@ These commands become available as each stage lands:
 ```sh
 node main.ts --deals 3                          # dry run: shows what would change, writes nothing
 node main.ts --deals 3 --apply                  # writes to the sandbox
-node main.ts --deals 5 --contacts 5 --companies 5 --vehicles 5 --line-items 10 --products 5 --apply
+node main.ts --deals 3 --companies 3         # also copies the companies linked to those deals, and the links
 ```
 
-Each type flag defaults to 0, which skips that type. `--source-env` and `--target-env` change where the env files are read from.
+`--deals` is required. `--companies` defaults to 0, which skips that stage. `--source-env` and `--target-env` change where the env files are read from. The defaults are `interstate/.env.prod` and `interstate/.env.sandbox`.
 
 ## Files
 
@@ -50,22 +40,24 @@ Type declarations and code that runs are kept apart:
   - `run.types.ts`: command-line options, per-type results and the run summary.
   - `objectContract.types.ts`: the shape every object contract follows.
   - `upsert.types.ts`: a record ready to write, the upsert input built from it, HubSpot's batch upsert response, and the tally of results.
+  - `association.types.ts`: production links, and the inputs used to recreate them in the sandbox.
   - `fakeHubSpot.types.ts`: shapes used by the test-only fake client.
   - `deal.types.ts`, `contact.types.ts`, `company.types.ts`, `vehicle.types.ts`, `lineItem.types.ts`, `product.types.ts`: one record interface per object type. Each lists every writable production property with its HubSpot label and type.
 - **`contracts/`** holds the values built from those types, one file per object type. Each file has the property-name list used in API calls and the object's contract: selection, upsert keys, remapping and links. `allContracts.ts` lists all six in stage order.
-- **`main.ts`** runs the four steps in order: verify portals, read production, prepare for the sandbox, upsert.
+- **`main.ts`** checks the portals, then runs one stage per object type. Each stage fetches records (the newest ones, or those linked to an earlier stage), prepares them for the sandbox, upserts them, and copies their links.
 - **`sync/`** holds the code `main.ts` calls, split by what each part is responsible for. Each file has its tests beside it.
   - **`logic/`** holds the business rules. These are pure functions with no network calls and no file access, so they're easy to test and reason about.
     - `portalRules.ts`: only production may be the source and only the sandbox the target.
     - `prepareRecords.ts`: which properties are writable, what gets sent, and the `prod_sync_date` stamp.
     - `upsertKeys.ts`: which Excede ID each record is matched on.
     - `upsertTally.ts`: totals HubSpot's upsert responses and stops on any error.
+    - `links.ts`: which linked records to copy, and how a production link becomes a sandbox link. A link is only recreated when both records were copied, using the sandbox's own link type IDs.
   - **`infrastructure/`** talks to the outside world.
     - `hubspotClient.ts`: the only code that calls HubSpot. It retries on rate limits, and the production client refuses every write.
     - `hubspotApi.ts`: one function per HubSpot endpoint, covering URLs, paging and the 100-per-batch limit.
     - `env.ts` and `cli.ts`: read tokens from the env files, and flags from the command line.
     - `chunk.ts`: splits lists into batches.
-  - **`steps/`** holds the run itself. Each step calls infrastructure and applies the logic: `verifyPortals.ts`, `fetchRecentRecords.ts`, `prepareForSandbox.ts` and `upsertRecords.ts`.
+  - **`steps/`** holds the run itself. Each step calls infrastructure and applies the logic: `verifyPortals.ts`, `fetchRecentRecords.ts`, `fetchLinkedRecords.ts`, `prepareForSandbox.ts`, `upsertRecords.ts` and `copyLinks.ts`.
   - `fakeHubSpotClient.ts`: a test-only HubSpot client that records calls and never touches the network.
 
 The property lists were generated from production's property definitions on 2026-10-07. Read-only and calculated properties are left out, because HubSpot rejects writes to them.

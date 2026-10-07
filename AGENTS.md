@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-This is a one-way copy tool. It reads Interstate HubSpot records from production (portal 51580259) and upserts them into the Interstate standard sandbox (portal 52133352), matched on unique Excede ID properties so that re-runs update records instead of duplicating them. It is built in stages, one object type each: deals → contacts → companies → vehicles → line items → products. **Only Stage 1 (deals) is implemented.** See the README status table.
+This is a one-way copy tool. It reads Interstate HubSpot records from production (portal 51580259) and upserts them into the Interstate standard sandbox (portal 52133352), matched on unique Excede ID properties so that re-runs update records instead of duplicating them. It is built in stages, one object type each: deals → companies → contacts → vehicles → line items → products. **Stages 1 (deals) and 2 (companies, with deal→company links) are implemented.** `STAGES.md` is the running checklist. Keep it updated as stages progress.
 
 Remote: `github.com/jkhl-1406/interstate-sandbox-sync`. The repo is **public**, so never commit tokens or production data. `.gitignore` covers `.env*`, `*.csv`, `*.xlsx` and `runs/`.
 
@@ -13,6 +13,7 @@ Remote: `github.com/jkhl-1406/interstate-sandbox-sync`. The repo is **public**, 
 ```sh
 node main.ts --deals 3                 # dry run: reads both portals, writes nothing
 node main.ts --deals 3 --apply         # writes to the sandbox
+node main.ts --deals 3 --companies 3   # stage 2: companies linked to those deals, plus the links
 node main.ts --deals 3 --source-env .env.prod --target-env .env.sandbox   # use the repo-local env files
 
 node --test                            # all tests
@@ -27,12 +28,15 @@ Node 24 runs the `.ts` files directly through type stripping. There is no build 
 
 ## Architecture
 
-The run in `main.ts` is four steps. Each step lives in `sync/steps/`, calls infrastructure, and applies logic:
+`main.ts` checks the portals, then runs one stage per object type. A stage is a small function in `main.ts` (`copyDeals`, `copyCompanies`). Each one strings together the steps in `sync/steps/`:
 
-1. **`verifyPortals`** reads `/account-info/v3/details` for both tokens. The rule in `logic/portalRules.ts` refuses the run unless source = 51580259 and target = 52133352. This, together with the read-only production client, is what keeps production safe.
-2. **`fetchRecentRecords`** searches production for the N newest records (sorted by `createdate`), then batch-reads them with every property in the object's contract.
+1. **`verifyPortals`** runs once per run. It reads `/account-info/v3/details` for both tokens. The rule in `logic/portalRules.ts` refuses the run unless source = 51580259 and target = 52133352. This, together with the read-only production client, is what keeps production safe.
+2. **Fetch.**
+   - `fetchRecentRecords` searches for the N newest records (sorted by `createdate`) and batch-reads them with every property in the contract. Deals use this as the anchor.
+   - `fetchLinkedRecords` reads v4 associations from the previous stage's records. It collects up to N linked IDs and batch-reads them. It also returns the links so they aren't read twice.
 3. **`prepareForSandbox`** reads the sandbox's property definitions and keeps only filled-in values for properties the sandbox can write. It stamps every record with `prod_sync_date`, one ISO timestamp per run, passed in from `main.ts`.
-4. **`upsertRecords`** picks each record's key, which is the first filled-in property in the contract's `keyPriority`. Records with no key are skipped and reported. It then calls `POST /crm/v3/objects/{type}/batch/upsert`, 100 at a time, with the production ID in `objectWriteTraceId`, and maps HubSpot's results back to production IDs through that field. A dry run sends nothing.
+4. **`upsertRecords`** picks each record's key, which is the first filled-in property in the contract's `keyPriority`. Records with no key are skipped and reported. It then calls `POST /crm/v3/objects/{type}/batch/upsert`, 100 at a time, with the production ID in `objectWriteTraceId`, and maps HubSpot's results back to production IDs through that field. The result's `idMap` maps production IDs to sandbox IDs, and `sentIds` lists what was sent. A dry run sends nothing.
+5. **`copyLinks`** reads the sandbox's link types (`/crm/v4/associations/{from}/{to}/labels`) and translates each production link using the two `idMap`s. HUBSPOT_DEFINED types keep their ID; custom types are matched by label. A link is created only if both of its records were copied. A dry run has no sandbox IDs, so it stands in `sentIds` (`placeholderIdMap`) to count the links it would create.
 
 The code is split by responsibility, and the split is deliberate:
 
@@ -71,13 +75,7 @@ The property lists were generated from production's `GET /crm/v3/properties/{typ
 
 ## Projects and Tasks
 
-- **Live test of Stage 1 not done yet.** Run a dry run, then `--apply --deals 3`, then `--apply` again. The second run should create 0 records.
-  - The CLI defaults read `interstate/.env.prod` and `interstate/.env.sandbox`, four levels up. The workspace `.env.sandbox` currently defines `SERVICE_KEY=` rather than `HUBSPOT_TOKEN=`.
-  - Repo-local `.env.prod` and `.env.sandbox` with `HUBSPOT_TOKEN` now exist and are gitignored. Pass them with `--source-env` and `--target-env`, or change the defaults in `sync/infrastructure/cli.ts`.
-- **Behavior to confirm on the first live run:**
-  - HubSpot echoes `objectWriteTraceId` on upsert results. The run stops loudly if it doesn't.
-  - A batch may mix different `idProperty` values.
-  - The sandbox has the `excede_*` unique key properties and pipeline and stage IDs that match production.
-- **`prod_sync_date` must exist in the sandbox as a datetime property** on each object type, or every upsert fails.
-- **Stages 2–6 (contacts, companies, vehicles, line items, products)** plus association copying and owner and pipeline remapping are not started. The plan is in `~/.claude/plans/i-need-to-build-sequential-lantern.md`.
-- **Open decision:** whether `--deals N` should copy N of each deal type, instead of the N newest overall.
+`STAGES.md` is the source of truth for stage progress and open items. Read it before starting work, and tick items off as they land. Two traps to know about:
+
+- **Env files:** the CLI defaults read `interstate/.env.prod` and `interstate/.env.sandbox`, four levels up. The workspace `.env.sandbox` defines `SERVICE_KEY=`, not `HUBSPOT_TOKEN=`, so live runs pass the repo-local files instead: `--source-env .env.prod --target-env .env.sandbox`. Both are gitignored.
+- **`prod_sync_date` in the sandbox:** the property exists on deals as a text field but not on companies. Any `--apply` run that upserts companies fails until the property is created.

@@ -5,10 +5,19 @@
 import type { PortalContext } from "../../types/hubspotClient.types.ts";
 import type { ObjectContract } from "../../types/objectContract.types.ts";
 import type { UpsertResult } from "../../types/run.types.ts";
-import type { PreparedRecord } from "../../types/upsert.types.ts";
+import type { PreparedRecord, UpsertInput } from "../../types/upsert.types.ts";
 import { batchUpsert, objectPath } from "../infrastructure/hubspotApi.ts";
 import { buildInputs } from "../logic/upsertKeys.ts";
 import { tallyUpsertResponses } from "../logic/upsertTally.ts";
+
+/** The production IDs of the records being sent. */
+function sentIdsOf(inputs: UpsertInput[]): string[] {
+  const ids: string[] = [];
+  for (const input of inputs) {
+    ids.push(input.objectWriteTraceId);
+  }
+  return ids;
+}
 
 /**
  * Upserts one object type's records into the sandbox.
@@ -27,6 +36,7 @@ export async function upsertRecords(
   const result: UpsertResult = {
     kind: contract.kind,
     sent: built.inputs.length,
+    sentIds: sentIdsOf(built.inputs),
     created: 0,
     updated: 0,
     skippedNoKey: built.skippedNoKey,

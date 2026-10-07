@@ -1,40 +1,121 @@
 /**
- * Copies the newest production deals into the Interstate sandbox.
+ * Copies production records into the Interstate sandbox, one stage per
+ * object type.
  *
- *   node main.ts --deals 3            dry run: reads both portals, writes nothing
- *   node main.ts --deals 3 --apply    writes to the sandbox
+ *   node main.ts --deals 3                     dry run: reads both portals, writes nothing
+ *   node main.ts --deals 3 --apply             writes deals to the sandbox
+ *   node main.ts --deals 3 --companies 3       also copies the companies linked to those deals
  *
- * The run:
- *   1. verifyPortals      check both tokens point at the right portals
- *   2. fetchRecentRecords read the N newest deals from production
- *   3. prepareForSandbox  keep only what the sandbox accepts, stamp the sync time
- *   4. upsertRecords      write them, matched on their Excede key
+ * Every stage runs the same steps:
+ *   fetch (recent or linked) -> prepareForSandbox -> upsertRecords -> copyLinks
  */
+import { COMPANY_CONTRACT } from "./contracts/company.ts";
 import { DEAL_CONTRACT } from "./contracts/deal.ts";
+import type { CrmRecord } from "./types/crm.types.ts";
 import type { PortalContext } from "./types/hubspotClient.types.ts";
-import type { UpsertResult } from "./types/run.types.ts";
+import type {
+  AssociationResult,
+  RunContext,
+  UpsertResult,
+} from "./types/run.types.ts";
 import { parseRunOptions } from "./sync/infrastructure/cli.ts";
 import { readToken } from "./sync/infrastructure/env.ts";
 import { createClient } from "./sync/infrastructure/hubspotClient.ts";
+import { copyLinks } from "./sync/steps/copyLinks.ts";
+import { fetchLinkedRecords } from "./sync/steps/fetchLinkedRecords.ts";
 import { fetchRecentRecords } from "./sync/steps/fetchRecentRecords.ts";
 import { prepareForSandbox } from "./sync/steps/prepareForSandbox.ts";
 import { upsertRecords } from "./sync/steps/upsertRecords.ts";
 import { verifyPortals } from "./sync/steps/verifyPortals.ts";
 
-/** Prints the end-of-run summary. */
-function printSummary(result: UpsertResult, apply: boolean): void {
+/** Stage 1: the N newest production deals. */
+async function copyDeals(
+  run: RunContext,
+): Promise<{ records: CrmRecord[]; result: UpsertResult }> {
+  const records = await fetchRecentRecords(
+    run.source,
+    DEAL_CONTRACT,
+    run.options.limits.deals,
+  );
+  const prepared = await prepareForSandbox(
+    run.target,
+    DEAL_CONTRACT,
+    records,
+    run.syncedAt,
+  );
+  const result = await upsertRecords(
+    run.target,
+    DEAL_CONTRACT,
+    prepared,
+    run.options.apply,
+  );
+  return { records, result };
+}
+
+/** Stage 2: the companies linked to the copied deals, and those links. */
+async function copyCompanies(
+  run: RunContext,
+  dealRecords: CrmRecord[],
+  deals: UpsertResult,
+): Promise<{ result: UpsertResult; links: AssociationResult }> {
+  const dealIds = dealRecords.map((record) => record.id);
+  const linked = await fetchLinkedRecords(
+    run.source,
+    DEAL_CONTRACT,
+    dealIds,
+    COMPANY_CONTRACT,
+    run.options.limits.companies,
+  );
+  const prepared = await prepareForSandbox(
+    run.target,
+    COMPANY_CONTRACT,
+    linked.records,
+    run.syncedAt,
+  );
+  const result = await upsertRecords(
+    run.target,
+    COMPANY_CONTRACT,
+    prepared,
+    run.options.apply,
+  );
+  const links = await copyLinks(
+    run.target,
+    linked.links,
+    deals,
+    result,
+    run.options.apply,
+  );
+  return { result, links };
+}
+
+/** Prints one line per object type and one per set of links. */
+function printSummary(
+  upserts: UpsertResult[],
+  links: AssociationResult[],
+  apply: boolean,
+): void {
   console.log("");
-  if (apply) {
-    console.log(`[summary] ${result.kind}: sent ${result.sent}`);
-    console.log(
-      `[summary] created ${result.created}, updated ${result.updated}`,
-    );
-  } else {
-    console.log(`[summary] ${result.kind}: would send ${result.sent}`);
+  for (const result of upserts) {
+    if (apply) {
+      console.log(
+        `[summary] ${result.kind}: sent ${result.sent} (created ${result.created}, updated ${result.updated})`,
+      );
+    } else {
+      console.log(`[summary] ${result.kind}: would send ${result.sent}`);
+    }
+    if (result.skippedNoKey.length > 0) {
+      console.log(
+        `[summary] ${result.kind} skipped (no Excede key): ${result.skippedNoKey.join(", ")}`,
+      );
+    }
   }
-  if (result.skippedNoKey.length > 0) {
+  for (const link of links) {
+    let verb = "linked";
+    if (!apply) {
+      verb = "would link";
+    }
     console.log(
-      `[summary] skipped (no Excede key): ${result.skippedNoKey.join(", ")}`,
+      `[summary] ${link.from} -> ${link.to}: ${verb} ${link.created} (skipped: ${link.skippedMissingEnd} missing a side, ${link.skippedUnmappedType} unknown link types)`,
     );
   }
 }
@@ -58,7 +139,7 @@ async function main(): Promise<void> {
     allowWrites: options.apply,
   });
 
-  // 1. Refuse to run against the wrong portals.
+  // Refuse to run against the wrong portals.
   const portals = await verifyPortals(sourceClient, targetClient, options);
   // vehiclesTypeId is looked up when vehicles are added (stage 4).
   const source: PortalContext = {
@@ -73,31 +154,22 @@ async function main(): Promise<void> {
     client: targetClient,
     vehiclesTypeId: "",
   };
+  // One sync time for the whole run, stamped on every record as prod_sync_date.
+  const run: RunContext = { source, target, options, syncedAt: new Date() };
 
-  // 2. Read the newest deals from production.
-  const records = await fetchRecentRecords(
-    source,
-    DEAL_CONTRACT,
-    options.limits.deals,
-  );
+  const upserts: UpsertResult[] = [];
+  const links: AssociationResult[] = [];
 
-  // 3. Keep only what the sandbox can accept; one sync time for the whole run.
-  const syncedAt = new Date();
-  const prepared = await prepareForSandbox(
-    target,
-    DEAL_CONTRACT,
-    records,
-    syncedAt,
-  );
+  const deals = await copyDeals(run);
+  upserts.push(deals.result);
 
-  // 4. Upsert into the sandbox.
-  const result = await upsertRecords(
-    target,
-    DEAL_CONTRACT,
-    prepared,
-    options.apply,
-  );
-  printSummary(result, options.apply);
+  if (options.limits.companies > 0) {
+    const companies = await copyCompanies(run, deals.records, deals.result);
+    upserts.push(companies.result);
+    links.push(companies.links);
+  }
+
+  printSummary(upserts, links, options.apply);
 }
 
 main().catch((error: Error) => {
