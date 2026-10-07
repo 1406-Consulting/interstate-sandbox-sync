@@ -2,7 +2,7 @@
  * Run inputs and results: command-line options, per-type outcomes and the
  * end-of-run summary. Type declarations only.
  */
-import type { IdMap, ObjectKind } from "./crm.types.ts";
+import type { CrmRecord, IdMap, ObjectKind } from "./crm.types.ts";
 import type { PortalContext } from "./hubspotClient.types.ts";
 
 /** How many records of each type to copy. 0 means skip that type. */
@@ -75,4 +75,16 @@ export interface RunContext {
   target: PortalContext;
   options: RunOptions;
   syncedAt: Date;
+}
+
+/** What a stage that copies the newest records returns: what it read, and what it wrote. */
+export interface NewestStageResult {
+  records: CrmRecord[];
+  result: UpsertResult;
+}
+
+/** What a stage that copies records linked to the deals returns. */
+export interface LinkedStageResult {
+  result: UpsertResult;
+  links: AssociationResult;
 }

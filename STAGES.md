@@ -29,12 +29,21 @@ Removed from the code on 2026-10-07. Production has 1 contact and no links to de
 - [ ] Vehicles linked to copied deals, companies or contacts, upserted on `excede_vehicle_id`
 - [ ] Links: deal→vehicle uses USER_DEFINED types, one unlabeled and one labeled `deal_to_vehicle`. Those are matched to the sandbox by label.
 
-## 5. Line items: not started
-- [ ] Line items linked to copied deals. All 100 of the newest deals have them.
-- [ ] Links to deals and vehicles
+## 5. Line items: built
+- [x] Read the line items linked to the copied deals, capped at `--line-items N`
+- [x] Upsert line items on the first filled-in key in `keyPriority`
+- [x] Copy deal→line item links; dry run creates none
+- [ ] Line item→vehicle links wait for stage 4 (vehicles aren't copied yet)
+- [ ] Live dry run
+- [ ] Create `prod_sync_date` (text) on sandbox line items
+- [ ] Live `--apply`, then `--apply` again creates 0
 
-## 6. Products: not started
-- [ ] The N newest products on their own. No production line item has `hs_product_id`.
+## 6. Products: built
+- [x] Read the N newest products on their own, capped at `--products N`. No production line item has `hs_product_id`, so there are no links.
+- [x] Upsert products on `excede_part_id`
+- [ ] Live dry run
+- [ ] Create `prod_sync_date` (text) on sandbox products
+- [ ] Live `--apply`, then `--apply` again creates 0
 
 ## Open items
 - [ ] Sandbox needs a `prod_sync_date` text property on each object type before its stage can `--apply`. Deals and companies have it; contacts, vehicles, line items and products don't yet.

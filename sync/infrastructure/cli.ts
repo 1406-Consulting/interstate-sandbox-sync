@@ -4,6 +4,8 @@
  *   node main.ts --deals 3            dry run: shows what would be sent
  *   node main.ts --deals 3 --apply    writes to the sandbox
  *   node main.ts --deals 3 --companies 3   also copies companies linked to those deals
+ *   node main.ts --deals 3 --line-items 3  also copies line items linked to those deals
+ *   node main.ts --deals 3 --products 3    also copies the 3 newest products
  */
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -36,6 +38,8 @@ export function parseRunOptions(argv: string[]): RunOptions {
     options: {
       deals: { type: "string" },
       companies: { type: "string", default: "0" },
+      "line-items": { type: "string", default: "0" },
+      products: { type: "string", default: "0" },
       apply: { type: "boolean", default: false },
       "source-env": { type: "string", default: DEFAULT_SOURCE_ENV },
       "target-env": { type: "string", default: DEFAULT_TARGET_ENV },
@@ -48,6 +52,8 @@ export function parseRunOptions(argv: string[]): RunOptions {
   }
   const deals = readCount("deals", rawDeals, 1);
   const companies = readCount("companies", parsed.values.companies, 0);
+  const lineItems = readCount("line-items", parsed.values["line-items"], 0);
+  const products = readCount("products", parsed.values.products, 0);
 
   return {
     limits: {
@@ -55,8 +61,8 @@ export function parseRunOptions(argv: string[]): RunOptions {
       contacts: 0,
       companies,
       vehicles: 0,
-      line_items: 0,
-      products: 0,
+      line_items: lineItems,
+      products,
     },
     apply: parsed.values.apply,
     sourceEnvPath: parsed.values["source-env"],

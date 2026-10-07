@@ -2,13 +2,13 @@
 
 Copies a set number of Interstate HubSpot records from production (portal 51580259) into the sandbox (portal 52133352), along with the links between them. Each record is created or updated by matching on its Excede ID, so running the script again updates records instead of duplicating them.
 
-It copies deals, contacts, companies, vehicles (a custom object), line items and products. Records are chosen by starting from the N most recent deals and following their links, with each type capped at its own limit. Products have no links in production, so the script copies the N most recent ones on their own.
+It currently copies deals, companies, line items and products. Contacts and vehicles (a custom object) are deferred. Records are chosen by starting from the N most recent deals and following their links, with each type capped at its own limit. Products have no links in production, so the script copies the N most recent ones on their own.
 
 Data only flows from production to the sandbox. The production client cannot write, and the script refuses to run unless the target is the Interstate sandbox.
 
 ## Status
 
-The script is built one object type per stage: deals, companies, contacts, vehicles, line items, then products. [`STAGES.md`](STAGES.md) tracks each stage's checklist and the open items.
+The script is built one object type per stage: deals, companies, contacts, vehicles, line items, then products. Deals, companies, line items and products are implemented; contacts and vehicles are deferred. [`STAGES.md`](STAGES.md) tracks each stage's checklist and the open items.
 
 ## Requirements
 
@@ -25,9 +25,11 @@ These commands become available as each stage lands:
 node main.ts --deals 3                          # dry run: shows what would change, writes nothing
 node main.ts --deals 3 --apply                  # writes to the sandbox
 node main.ts --deals 3 --companies 3         # also copies the companies linked to those deals, and the links
+node main.ts --deals 3 --line-items 3        # also copies the line items linked to those deals, and the links
+node main.ts --deals 3 --products 3          # also copies the 3 newest products (no links)
 ```
 
-`--deals` is required. `--companies` defaults to 0, which skips that stage. `--source-env` and `--target-env` change where the env files are read from. The defaults are `interstate/.env.prod` and `interstate/.env.sandbox`.
+`--deals` is required. `--companies`, `--line-items` and `--products` default to 0, which skips that stage. `--source-env` and `--target-env` change where the env files are read from. The defaults are `interstate/.env.prod` and `interstate/.env.sandbox`.
 
 ## Files
 

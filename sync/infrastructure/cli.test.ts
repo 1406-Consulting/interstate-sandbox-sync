@@ -11,3 +11,21 @@ test("--deals sets the count; only --apply turns on writing", () => {
   assert.equal(dryRun.apply, false);
   assert.equal(applied.apply, true);
 });
+
+/** --line-items and --products set their limits and default to 0 (skipped). */
+test("--line-items and --products set their limits and default to 0", () => {
+  const defaults = parseRunOptions(["--deals", "3"]);
+  const withLimits = parseRunOptions([
+    "--deals",
+    "3",
+    "--line-items",
+    "5",
+    "--products",
+    "7",
+  ]);
+
+  assert.equal(defaults.limits.line_items, 0);
+  assert.equal(defaults.limits.products, 0);
+  assert.equal(withLimits.limits.line_items, 5);
+  assert.equal(withLimits.limits.products, 7);
+});
