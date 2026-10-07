@@ -1,0 +1,13 @@
+{
+  "name": "interstate-sandbox-sync",
+  "private": true,
+  "type": "module",
+  "description": "Copies a set number of Interstate HubSpot records from production into the sandbox.",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "node --test",
+    "sync": "node main.ts"
+  }
+}

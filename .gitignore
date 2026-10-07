@@ -1,0 +1,10 @@
+# Credentials and production data never leave this machine.
+.env
+.env*
+*.csv
+*.xlsx
+runs/
+
+.worktrees/
+node_modules/
+.DS_Store
