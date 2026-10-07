@@ -3,7 +3,8 @@
  * through the v4 API, and the inputs used to recreate them in the sandbox.
  * Type declarations only.
  */
-import type { AssociationType } from "./crm.types.ts";
+import type { AssociationType, ObjectKind } from "./crm.types.ts";
+import type { ObjectContract } from "./objectContract.types.ts";
 
 /** One production link: a record linked to another, with every link type it carries. */
 export interface AssociationLink {
@@ -51,4 +52,16 @@ export interface TranslatedLinks {
   inputs: AssociationCreateInput[];
   skippedMissingEnd: number; // one side was not copied
   skippedUnmappedType: number; // the link type does not exist in the sandbox
+}
+
+/** Records copied in an earlier stage whose production links lead to the records being fetched. */
+export interface LinkSource {
+  contract: ObjectContract;
+  ids: string[];
+}
+
+/** The production links read from one earlier type, kept so they can be recreated. */
+export interface LinkSet {
+  from: ObjectKind;
+  links: AssociationLink[];
 }

@@ -19,9 +19,12 @@ Moved ahead of contacts on 2026-10-07. Production has 1 contact and no deal↔co
 - [x] Created `prod_sync_date` (text, Company information group) on sandbox companies (2026-10-07)
 - [ ] Live `--apply`, then `--apply` again creates 0
 
-## 3. Contacts: not started
-- [ ] Contacts linked to copied deals or companies, upserted on `excede_customer_contact_id`, then `email`
-- [ ] Links to deals and companies
+## 3. Contacts: built
+- [x] Contacts linked to copied deals or companies (deals' links first, shared `--contacts N` cap, no repeats), upserted on `excede_customer_contact_id`, then `email`
+- [x] Copy deal→contact and company→contact links; dry run creates none
+- [ ] Live dry run
+- [ ] Create `prod_sync_date` (text) on sandbox contacts
+- [ ] Live `--apply`, then `--apply` again creates 0
 - Production has 1 contact and no links to deals today, so this copies nothing until Excede contacts are synced.
 
 ## 4. Vehicles: not started

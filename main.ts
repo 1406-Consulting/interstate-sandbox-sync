@@ -5,12 +5,15 @@
  *   node main.ts --deals 3                     dry run: reads both portals, writes nothing
  *   node main.ts --deals 3 --apply             writes deals to the sandbox
  *   node main.ts --deals 3 --companies 3       also copies the companies linked to those deals
+ *   node main.ts --deals 3 --contacts 3        also copies contacts linked to those deals or companies
  *
  * Every stage runs the same steps:
  *   fetch (recent or linked) -> prepareForSandbox -> upsertRecords -> copyLinks
  */
 import { COMPANY_CONTRACT } from "./contracts/company.ts";
+import { CONTACT_CONTRACT } from "./contracts/contact.ts";
 import { DEAL_CONTRACT } from "./contracts/deal.ts";
+import type { LinkSource } from "./types/association.types.ts";
 import type { CrmRecord } from "./types/crm.types.ts";
 import type { PortalContext } from "./types/hubspotClient.types.ts";
 import type {
@@ -52,17 +55,24 @@ async function copyDeals(
   return { records, result };
 }
 
-/** Stage 2: the companies linked to the copied deals, and those links. */
+/**
+ * Stage 2: the companies linked to the copied deals, and those links.
+ * Also returns the fetched company records, which stage 3 follows to contacts.
+ */
 async function copyCompanies(
   run: RunContext,
   dealRecords: CrmRecord[],
   deals: UpsertResult,
-): Promise<{ result: UpsertResult; links: AssociationResult }> {
+): Promise<{
+  records: CrmRecord[];
+  result: UpsertResult;
+  links: AssociationResult;
+}> {
   const dealIds = dealRecords.map((record) => record.id);
+  const fromSources: LinkSource[] = [{ contract: DEAL_CONTRACT, ids: dealIds }];
   const linked = await fetchLinkedRecords(
     run.source,
-    DEAL_CONTRACT,
-    dealIds,
+    fromSources,
     COMPANY_CONTRACT,
     run.options.limits.companies,
   );
@@ -80,11 +90,69 @@ async function copyCompanies(
   );
   const links = await copyLinks(
     run.target,
-    linked.links,
+    linked.linkSets[0].links,
     deals,
     result,
     run.options.apply,
   );
+  return { records: linked.records, result, links };
+}
+
+/**
+ * Stage 3: the contacts linked to the copied deals or companies (deals'
+ * links first), and the links back to each. `companies` is null when the
+ * companies stage was skipped.
+ */
+async function copyContacts(
+  run: RunContext,
+  deals: { records: CrmRecord[]; result: UpsertResult },
+  companies: { records: CrmRecord[]; result: UpsertResult } | null,
+): Promise<{ result: UpsertResult; links: AssociationResult[] }> {
+  const dealIds = deals.records.map((record) => record.id);
+  const fromSources: LinkSource[] = [{ contract: DEAL_CONTRACT, ids: dealIds }];
+  const upserted: UpsertResult[] = [deals.result];
+  if (companies !== null) {
+    const companyIds = companies.records.map((record) => record.id);
+    fromSources.push({ contract: COMPANY_CONTRACT, ids: companyIds });
+    upserted.push(companies.result);
+  }
+
+  const linked = await fetchLinkedRecords(
+    run.source,
+    fromSources,
+    CONTACT_CONTRACT,
+    run.options.limits.contacts,
+  );
+  const prepared = await prepareForSandbox(
+    run.target,
+    CONTACT_CONTRACT,
+    linked.records,
+    run.syncedAt,
+  );
+  const result = await upsertRecords(
+    run.target,
+    CONTACT_CONTRACT,
+    prepared,
+    run.options.apply,
+  );
+
+  // Each link set pairs with the upsert result of the type it came from.
+  const links: AssociationResult[] = [];
+  for (const linkSet of linked.linkSets) {
+    for (const fromResult of upserted) {
+      if (fromResult.kind !== linkSet.from) {
+        continue;
+      }
+      const copied = await copyLinks(
+        run.target,
+        linkSet.links,
+        fromResult,
+        result,
+        run.options.apply,
+      );
+      links.push(copied);
+    }
+  }
   return { result, links };
 }
 
@@ -163,10 +231,18 @@ async function main(): Promise<void> {
   const deals = await copyDeals(run);
   upserts.push(deals.result);
 
+  let companies: { records: CrmRecord[]; result: UpsertResult } | null = null;
   if (options.limits.companies > 0) {
-    const companies = await copyCompanies(run, deals.records, deals.result);
-    upserts.push(companies.result);
-    links.push(companies.links);
+    const copied = await copyCompanies(run, deals.records, deals.result);
+    companies = { records: copied.records, result: copied.result };
+    upserts.push(copied.result);
+    links.push(copied.links);
+  }
+
+  if (options.limits.contacts > 0) {
+    const contacts = await copyContacts(run, deals, companies);
+    upserts.push(contacts.result);
+    links.push(...contacts.links);
   }
 
   printSummary(upserts, links, options.apply);

@@ -8,7 +8,7 @@ Data only flows from production to the sandbox. The production client cannot wri
 
 ## Status
 
-The script is built one object type per stage: deals, companies, contacts, vehicles, line items, then products. [`STAGES.md`](STAGES.md) tracks each stage's checklist and the open items.
+The script is built one object type per stage: deals, companies, contacts, vehicles, line items, then products. Deals, companies and contacts are built; the rest are not yet. [`STAGES.md`](STAGES.md) tracks each stage's checklist and the open items.
 
 ## Requirements
 
@@ -25,9 +25,10 @@ These commands become available as each stage lands:
 node main.ts --deals 3                          # dry run: shows what would change, writes nothing
 node main.ts --deals 3 --apply                  # writes to the sandbox
 node main.ts --deals 3 --companies 3         # also copies the companies linked to those deals, and the links
+node main.ts --deals 3 --companies 3 --contacts 3   # also copies contacts linked to those deals or companies, and the links
 ```
 
-`--deals` is required. `--companies` defaults to 0, which skips that stage. `--source-env` and `--target-env` change where the env files are read from. The defaults are `interstate/.env.prod` and `interstate/.env.sandbox`.
+`--deals` is required. `--companies` and `--contacts` default to 0, which skips that stage. `--contacts` works with or without `--companies`; the cap is shared between contacts linked to deals and to companies. `--source-env` and `--target-env` change where the env files are read from. The defaults are `interstate/.env.prod` and `interstate/.env.sandbox`.
 
 ## Files
 
