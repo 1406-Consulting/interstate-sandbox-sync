@@ -1,12 +1,13 @@
 /**
- * Rules every object contract must follow. These guard the stage order:
- * a stage may only select from, or link to, types copied before or with it.
+ * Rules every object contract must follow. These guard the stage order
+ * (a stage may only select from, or link to, types copied before or with it)
+ * and the property lists (keys must be copied, and nothing listed twice).
  */
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { ALL_CONTRACTS } from "./objectContracts.ts";
-import type { ObjectContract } from "./objectContracts.ts";
-import type { ObjectKind } from "./types.ts";
+import { ALL_CONTRACTS } from "./allContracts.ts";
+import type { ObjectContract } from "../types/objectContract.types.ts";
+import type { ObjectKind } from "../types/crm.types.ts";
 
 /** Finds the stage number a type is copied in. */
 function stageOf(kind: ObjectKind): number {
@@ -39,6 +40,18 @@ describe("each contract", () => {
         assert.equal(unique.size, contract.keyPriority.length);
       });
 
+      test("copies every upsert key it matches on", () => {
+        const copied = new Set(contract.properties);
+        for (const key of contract.keyPriority) {
+          assert.ok(copied.has(key), `${contract.kind} does not copy key ${key}`);
+        }
+      });
+
+      test("lists each property only once", () => {
+        const unique = new Set(contract.properties);
+        assert.equal(unique.size, contract.properties.length);
+      });
+
       test("only links to types copied in the same or an earlier stage", () => {
         for (const link of contract.links) {
           assert.ok(stageOf(link.to) <= contract.stage, `${contract.kind} links to ${link.to}`);
@@ -66,5 +79,11 @@ describe("deals", () => {
     const pipelineTypes = ALL_CONTRACTS.filter((contract) => contract.remaps.includes("pipeline"));
     assert.deepEqual(anchors.map((contract) => contract.kind), ["deals"]);
     assert.deepEqual(pipelineTypes.map((contract) => contract.kind), ["deals"]);
+  });
+
+  test("copies pipeline and dealstage so they can be remapped", () => {
+    const deals = ALL_CONTRACTS[0];
+    assert.ok(deals.properties.includes("pipeline"));
+    assert.ok(deals.properties.includes("dealstage"));
   });
 });

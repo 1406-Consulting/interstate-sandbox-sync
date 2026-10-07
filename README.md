@@ -12,7 +12,7 @@ The script is built one object type per stage. Each stage must be tested and app
 
 | Stage | Object type | Status |
 |---|---|---|
-| 0 | Type contracts (`types.ts`, `objectContracts.ts`) | Done |
+| 0 | Type contracts (`types/`, `contracts/`) | In review |
 | 1 | Deals | Not started |
 | 2 | Contacts | Not started |
 | 3 | Companies | Not started |
@@ -22,7 +22,7 @@ The script is built one object type per stage. Each stage must be tested and app
 
 ## Requirements
 
-- Node 24 or newer. It runs the `.ts` files directly, so there is no build step and nothing to install.
+- Node 24 or newer. It runs the `.ts` files directly, so there is no build step. `npm install` is only needed for type checking.
 - Two env files in the `interstate/` workspace folder, each with a `HUBSPOT_TOKEN=` line:
   - `.env.prod` holds a production token that can read records.
   - `.env.sandbox` holds a sandbox private app token. It needs read and write access to contacts, companies, deals, line items, custom objects and `e-commerce`, plus read access to schemas and owners.
@@ -41,11 +41,22 @@ Each type flag defaults to 0, which skips that type. `--source-env` and `--targe
 
 ## Files
 
-- `types.ts`: the data shapes shared by every module.
-- `objectContracts.ts`: one contract per object type, covering how records are chosen, the upsert keys, value remapping and links.
+Type declarations and code that runs are kept apart:
+
+- **`types/`** holds type declarations only. Every file ends in `.types.ts` and exports no values. `typeFiles.test.ts` enforces both rules.
+  - `crm.types.ts`: object kinds, records, property definitions and association types.
+  - `hubspotClient.types.ts`: the HubSpot client and per-portal context.
+  - `run.types.ts`: command-line options, per-type results and the run summary.
+  - `objectContract.types.ts`: the shape every object contract follows.
+  - `deal.types.ts`, `contact.types.ts`, `company.types.ts`, `vehicle.types.ts`, `lineItem.types.ts`, `product.types.ts`: one record interface per object type. Each lists every writable production property with its HubSpot label and type.
+- **`contracts/`** holds the values built from those types, one file per object type. Each file has the property-name list used in API calls and the object's contract: selection, upsert keys, remapping and links. `allContracts.ts` lists all six in stage order.
+
+The property lists were generated from production's property definitions on 2026-10-07. Read-only and calculated properties are left out, because HubSpot rejects writes to them.
 
 ## Tests
 
 ```sh
-node --test
+node --test        # behavior tests
+npm install        # once, for type checking
+npm run typecheck  # checks every property list matches its interface
 ```
