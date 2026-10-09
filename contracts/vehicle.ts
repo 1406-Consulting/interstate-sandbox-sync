@@ -161,7 +161,7 @@ export const VEHICLE_CONTRACT: ObjectContract = {
   kind: "vehicles",
   stage: 4,
   selection: "linked",
-  linkedFrom: ["deals", "companies", "contacts"],
+  linkedFrom: ["deals"],
   keyPriority: [
     "excede_vehicle_id",
   ],

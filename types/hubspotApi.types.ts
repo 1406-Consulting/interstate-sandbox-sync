@@ -20,6 +20,11 @@ export interface BatchReadResponse {
   results: CrmRecord[];
 }
 
+/** GET /crm/v3/schemas: every custom object defined in the portal */
+export interface SchemasResponse {
+  results: { name: string; objectTypeId: string }[];
+}
+
 /** One property definition from GET /crm/v3/properties/{type} */
 export interface RawPropertyDefinition {
   name: string;

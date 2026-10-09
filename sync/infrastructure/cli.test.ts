@@ -29,3 +29,12 @@ test("--line-items and --products set their limits and default to 0", () => {
   assert.equal(withLimits.limits.line_items, 5);
   assert.equal(withLimits.limits.products, 7);
 });
+
+/** --vehicles sets its limit and defaults to 0 (skipped). */
+test("--vehicles sets its limit and defaults to 0", () => {
+  const defaults = parseRunOptions(["--deals", "3"]);
+  const withLimit = parseRunOptions(["--deals", "3", "--vehicles", "3"]);
+
+  assert.equal(defaults.limits.vehicles, 0);
+  assert.equal(withLimit.limits.vehicles, 3);
+});

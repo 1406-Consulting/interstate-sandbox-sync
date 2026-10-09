@@ -88,3 +88,9 @@ export interface LinkedStageResult {
   result: UpsertResult;
   links: AssociationResult;
 }
+
+/** What all the stages of a run produced, ready for the summary. */
+export interface StagesResult {
+  upserts: UpsertResult[];
+  links: AssociationResult[];
+}

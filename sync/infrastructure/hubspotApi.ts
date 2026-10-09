@@ -21,6 +21,7 @@ import type {
   BatchReadResponse,
   PropertiesResponse,
   RawPropertyDefinition,
+  SchemasResponse,
   SearchResponse,
 } from "../../types/hubspotApi.types.ts";
 import type {
@@ -55,6 +56,24 @@ export async function getPortalId(client: HubSpotClient): Promise<number> {
     "/account-info/v3/details",
   );
   return details.portalId;
+}
+
+/**
+ * Finds a custom object's type ID (for example "2-70142906") by its name.
+ * It lists every schema and matches on `name`, because asking HubSpot for
+ * `/crm/v3/schemas/{name}` directly fails with a 400 for names it can't infer.
+ */
+export async function getObjectTypeId(
+  client: HubSpotClient,
+  name: string,
+): Promise<string> {
+  const response = await client.read<SchemasResponse>("GET", "/crm/v3/schemas");
+  for (const schema of response.results) {
+    if (schema.name === name) {
+      return schema.objectTypeId;
+    }
+  }
+  throw new Error(`no custom object named ${name}`);
 }
 
 /** Finds the IDs of the `limit` most recently created records, newest first. */

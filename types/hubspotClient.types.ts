@@ -30,5 +30,5 @@ export interface PortalContext {
   role: PortalRole;
   portalId: number;
   client: HubSpotClient;
-  vehiclesTypeId: string; // e.g. "2-70142906" in production
+  vehiclesTypeId: string; // looked up by name at the start of every run: "2-70142906" in production, "2-70546410" in the sandbox
 }

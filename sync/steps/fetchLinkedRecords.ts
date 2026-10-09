@@ -7,12 +7,9 @@ import type { AssociationLink } from "../../types/association.types.ts";
 import type { CrmRecord } from "../../types/crm.types.ts";
 import type { PortalContext } from "../../types/hubspotClient.types.ts";
 import type { ObjectContract } from "../../types/objectContract.types.ts";
-import {
-  batchReadAssociations,
-  batchReadRecords,
-  objectPath,
-} from "../infrastructure/hubspotApi.ts";
+import { batchReadRecords, objectPath } from "../infrastructure/hubspotApi.ts";
 import { collectLinkedIds } from "../logic/links.ts";
+import { fetchLinks } from "./fetchLinks.ts";
 
 /** Reads links from `fromIds`, then up to `limit` of the linked records. */
 export async function fetchLinkedRecords(
@@ -22,15 +19,9 @@ export async function fetchLinkedRecords(
   toContract: ObjectContract,
   limit: number,
 ): Promise<{ records: CrmRecord[]; links: AssociationLink[] }> {
-  const fromPath = objectPath(fromContract.kind, source);
   const toPath = objectPath(toContract.kind, source);
 
-  const links = await batchReadAssociations(
-    source.client,
-    fromPath,
-    toPath,
-    fromIds,
-  );
+  const links = await fetchLinks(source, fromContract, fromIds, toContract);
   const linkedIds = collectLinkedIds(links, limit);
   console.log(
     `[${toContract.kind}] found ${linkedIds.length} linked to ${fromIds.length} ${fromContract.kind} in production`,

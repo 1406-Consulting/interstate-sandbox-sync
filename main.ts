@@ -5,6 +5,7 @@
  *   node main.ts --deals 3                     dry run: reads both portals, writes nothing
  *   node main.ts --deals 3 --apply             writes deals to the sandbox
  *   node main.ts --deals 3 --companies 3       also copies the companies linked to those deals
+ *   node main.ts --deals 3 --vehicles 3        also copies the vehicles linked to those deals
  *   node main.ts --deals 3 --line-items 3      also copies the line items linked to those deals
  *   node main.ts --deals 3 --products 3        also copies the 3 newest products
  *
@@ -15,6 +16,7 @@ import { COMPANY_CONTRACT } from "./contracts/company.ts";
 import { DEAL_CONTRACT } from "./contracts/deal.ts";
 import { LINE_ITEM_CONTRACT } from "./contracts/lineItem.ts";
 import { PRODUCT_CONTRACT } from "./contracts/product.ts";
+import { VEHICLE_CONTRACT } from "./contracts/vehicle.ts";
 import type { PortalContext } from "./types/hubspotClient.types.ts";
 import type { ObjectContract } from "./types/objectContract.types.ts";
 import type {
@@ -22,6 +24,7 @@ import type {
   LinkedStageResult,
   NewestStageResult,
   RunContext,
+  StagesResult,
   UpsertResult,
 } from "./types/run.types.ts";
 import { parseRunOptions } from "./sync/infrastructure/cli.ts";
@@ -29,7 +32,9 @@ import { readToken } from "./sync/infrastructure/env.ts";
 import { createClient } from "./sync/infrastructure/hubspotClient.ts";
 import { copyLinks } from "./sync/steps/copyLinks.ts";
 import { fetchLinkedRecords } from "./sync/steps/fetchLinkedRecords.ts";
+import { fetchLinks } from "./sync/steps/fetchLinks.ts";
 import { fetchRecentRecords } from "./sync/steps/fetchRecentRecords.ts";
+import { findVehiclesTypes } from "./sync/steps/findVehiclesTypes.ts";
 import { prepareForSandbox } from "./sync/steps/prepareForSandbox.ts";
 import { upsertRecords } from "./sync/steps/upsertRecords.ts";
 import { verifyPortals } from "./sync/steps/verifyPortals.ts";
@@ -61,7 +66,8 @@ async function copyNewest(
 
 /**
  * Copies the records of one type that are linked to the copied deals, then
- * recreates the deal -> record links. Used by companies and line items.
+ * recreates the deal -> record links. Used by companies, vehicles and line
+ * items.
  */
 async function copyLinkedToDeals(
   run: RunContext,
@@ -97,6 +103,97 @@ async function copyLinkedToDeals(
     run.options.apply,
   );
   return { result, links };
+}
+
+/**
+ * Links records copied in two different stages, for example companies to
+ * vehicles. Dry runs already work, because `copyLinks` stands in `sentIds`
+ * for sandbox IDs.
+ */
+async function copyLinksBetween(
+  run: RunContext,
+  fromContract: ObjectContract,
+  fromResult: UpsertResult,
+  toContract: ObjectContract,
+  toResult: UpsertResult,
+): Promise<AssociationResult> {
+  const links = await fetchLinks(
+    run.source,
+    fromContract,
+    fromResult.sentIds,
+    toContract,
+  );
+  return copyLinks(run.target, links, fromResult, toResult, run.options.apply);
+}
+
+/**
+ * Runs every stage the options ask for, in order: deals, companies,
+ * vehicles, line items, products. Returns what each one copied and linked.
+ */
+async function runStages(run: RunContext): Promise<StagesResult> {
+  const upserts: UpsertResult[] = [];
+  const links: AssociationResult[] = [];
+  const limits = run.options.limits;
+
+  const deals = await copyNewest(run, DEAL_CONTRACT, limits.deals);
+  upserts.push(deals.result);
+
+  let companies: LinkedStageResult | null = null;
+  if (limits.companies > 0) {
+    companies = await copyLinkedToDeals(
+      run,
+      deals,
+      COMPANY_CONTRACT,
+      limits.companies,
+    );
+    upserts.push(companies.result);
+    links.push(companies.links);
+  }
+
+  let vehicles: LinkedStageResult | null = null;
+  if (limits.vehicles > 0) {
+    vehicles = await copyLinkedToDeals(
+      run,
+      deals,
+      VEHICLE_CONTRACT,
+      limits.vehicles,
+    );
+    upserts.push(vehicles.result);
+    links.push(vehicles.links);
+
+    // Companies and vehicles are copied in different stages, so their links
+    // are read and recreated separately.
+    if (companies !== null) {
+      const companyVehicleLinks = await copyLinksBetween(
+        run,
+        COMPANY_CONTRACT,
+        companies.result,
+        VEHICLE_CONTRACT,
+        vehicles.result,
+      );
+      links.push(companyVehicleLinks);
+    }
+  }
+
+  if (limits.line_items > 0) {
+    // The contract also links line items to vehicles. That link is skipped
+    // until vehicles are copied (stage 4).
+    const lineItems = await copyLinkedToDeals(
+      run,
+      deals,
+      LINE_ITEM_CONTRACT,
+      limits.line_items,
+    );
+    upserts.push(lineItems.result);
+    links.push(lineItems.links);
+  }
+
+  if (limits.products > 0) {
+    const products = await copyNewest(run, PRODUCT_CONTRACT, limits.products);
+    upserts.push(products.result);
+  }
+
+  return { upserts, links };
 }
 
 /** Prints one line per object type and one per set of links. */
@@ -150,62 +247,26 @@ async function main(): Promise<void> {
     allowWrites: options.apply,
   });
 
-  // Refuse to run against the wrong portals.
+  // Refuse to run against the wrong portals, and find each portal's vehicles type.
   const portals = await verifyPortals(sourceClient, targetClient, options);
-  // vehiclesTypeId is looked up when vehicles are added (stage 4).
+  const vehiclesTypes = await findVehiclesTypes(sourceClient, targetClient);
   const source: PortalContext = {
     role: "source",
     portalId: portals.sourcePortalId,
     client: sourceClient,
-    vehiclesTypeId: "",
+    vehiclesTypeId: vehiclesTypes.sourceTypeId,
   };
   const target: PortalContext = {
     role: "target",
     portalId: portals.targetPortalId,
     client: targetClient,
-    vehiclesTypeId: "",
+    vehiclesTypeId: vehiclesTypes.targetTypeId,
   };
   // One sync time for the whole run, stamped on every record as prod_sync_date.
   const run: RunContext = { source, target, options, syncedAt: new Date() };
 
-  const upserts: UpsertResult[] = [];
-  const links: AssociationResult[] = [];
-
-  const limits = options.limits;
-
-  const deals = await copyNewest(run, DEAL_CONTRACT, limits.deals);
-  upserts.push(deals.result);
-
-  if (limits.companies > 0) {
-    const companies = await copyLinkedToDeals(
-      run,
-      deals,
-      COMPANY_CONTRACT,
-      limits.companies,
-    );
-    upserts.push(companies.result);
-    links.push(companies.links);
-  }
-
-  if (limits.line_items > 0) {
-    // The contract also links line items to vehicles. That link is skipped
-    // until vehicles are copied (stage 4).
-    const lineItems = await copyLinkedToDeals(
-      run,
-      deals,
-      LINE_ITEM_CONTRACT,
-      limits.line_items,
-    );
-    upserts.push(lineItems.result);
-    links.push(lineItems.links);
-  }
-
-  if (limits.products > 0) {
-    const products = await copyNewest(run, PRODUCT_CONTRACT, limits.products);
-    upserts.push(products.result);
-  }
-
-  printSummary(upserts, links, options.apply);
+  const stages = await runStages(run);
+  printSummary(stages.upserts, stages.links, options.apply);
 }
 
 main().catch((error: Error) => {

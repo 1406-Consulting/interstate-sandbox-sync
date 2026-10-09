@@ -11,6 +11,7 @@ Each stage adds one object type, plus its links to types copied earlier. A stage
 
 ## 2. Companies: built
 Moved ahead of contacts on 2026-10-07. Production has 1 contact and no deal↔contact links, while 99 of the 100 newest deals link to a company.
+On 2026-10-09 the 100 newest deals (service orders and lease rental contracts) link to no company, so `--companies` currently finds none.
 - [x] Reorder contracts: companies is stage 2, contacts stage 3
 - [x] Read the companies linked to the copied deals, capped at `--companies N`
 - [x] Upsert companies on `excede_customer_id`
@@ -24,10 +25,13 @@ Removed from the code on 2026-10-07. Production has 1 contact and no links to de
 - [ ] Contacts linked to copied deals or companies, upserted on `excede_customer_contact_id`, then `email`
 - [ ] Links to deals and companies
 
-## 4. Vehicles: not started
-- [ ] Look up the vehicles type ID in each portal by name. Production uses `2-70142906`.
-- [ ] Vehicles linked to copied deals, companies or contacts, upserted on `excede_vehicle_id`
-- [ ] Links: deal→vehicle uses USER_DEFINED types, one unlabeled and one labeled `deal_to_vehicle`. Those are matched to the sandbox by label.
+## 4. Vehicles: built
+- [x] Look up the vehicles type ID in each portal by name on every run: production `2-70142906`, sandbox `2-70546410`. `GET /crm/v3/schemas/vehicles` returns 400, so the lookup lists `GET /crm/v3/schemas` and matches `name`.
+- [x] Read the vehicles linked to the copied deals, capped at `--vehicles N`, and upsert them on `excede_vehicle_id`. Selection is from deals only: on 2026-10-09 every vehicle linked to a copied line item was also linked to a deal.
+- [x] Copy deal→vehicle links (one unlabeled USER_DEFINED type and one labeled `deal_to_vehicle`, matched to the sandbox by label), plus company→vehicle links when both were copied
+- [x] Live dry run (2026-10-09): 3 vehicles and 3 deal→vehicle links would be created. All 147 vehicle contract properties are writable in the sandbox. Companies found 0, because the newest deals link to none.
+- [ ] Create `prod_sync_date` (text, `vehicles_information` group) on sandbox vehicles
+- [ ] Live `--apply`, then `--apply` again creates 0
 
 ## 5. Line items: built
 - [x] Read the line items linked to the copied deals, capped at `--line-items N`
@@ -48,4 +52,4 @@ Removed from the code on 2026-10-07. Production has 1 contact and no links to de
 ## Open items
 - [ ] Sandbox needs a `prod_sync_date` text property on each object type before its stage can `--apply`. Deals and companies have it; contacts, vehicles, line items and products don't yet.
 - [ ] Owner and pipeline/stage remapping (contract `remaps`) is not implemented. The values are sent as they are.
-- [ ] Decide whether `--deals N` copies N of each deal type, or the N newest overall. Today the newest are all lease rental bills.
+- [ ] Decide whether `--deals N` copies N of each deal type, or the N newest overall. On 2026-10-09 the newest 100 were 76 service orders and 24 lease rental contracts.
