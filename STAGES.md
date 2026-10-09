@@ -37,8 +37,8 @@ Removed from the code on 2026-10-07. Production has 1 contact and no links to de
 - [x] Read the line items linked to the copied deals, capped at `--line-items N`
 - [x] Upsert line items on the first filled-in key in `keyPriority`
 - [x] Copy deal→line item links; dry run creates none
-- [ ] Line item→vehicle links wait for stage 4 (vehicles aren't copied yet)
-- [ ] Live dry run
+- [x] Copy line item→vehicle links when `--vehicles` is set too, for links where both records were copied
+- [x] Live dry run (2026-10-09, `--deals 3 --vehicles 3 --line-items 3`): 3 line items, 3 deal→line item links and 3 line item→vehicle links would be created. Every line item contract property is writable in the sandbox.
 - [ ] Create `prod_sync_date` (text) on sandbox line items
 - [ ] Live `--apply`, then `--apply` again creates 0
 

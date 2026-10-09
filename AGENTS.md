@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-This is a one-way copy tool. It reads Interstate HubSpot records from production (portal 51580259) and upserts them into the Interstate standard sandbox (portal 52133352), matched on unique Excede ID properties so that re-runs update records instead of duplicating them. It is built in stages, one object type each: deals → companies → contacts → vehicles → line items → products. **Stages 1 (deals), 2 (companies, with deal→company links), 4 (vehicles, with deal→vehicle and company→vehicle links), 5 (line items, with deal→line item links) and 6 (products) are implemented; contacts are deferred.** `STAGES.md` is the running checklist. Keep it updated as stages progress.
+This is a one-way copy tool. It reads Interstate HubSpot records from production (portal 51580259) and upserts them into the Interstate standard sandbox (portal 52133352), matched on unique Excede ID properties so that re-runs update records instead of duplicating them. It is built in stages, one object type each: deals → companies → contacts → vehicles → line items → products. **Stages 1 (deals), 2 (companies, with deal→company links), 4 (vehicles, with deal→vehicle and company→vehicle links), 5 (line items, with deal→line item links, plus line item→vehicle links when `--vehicles` is set too) and 6 (products) are implemented; contacts are deferred.** `STAGES.md` is the running checklist. Keep it updated as stages progress.
 
 Remote: `github.com/jkhl-1406/interstate-sandbox-sync`. The repo is **public**, so never commit tokens or production data. `.gitignore` covers `.env*`, `*.csv`, `*.xlsx` and `runs/`.
 
@@ -18,6 +18,7 @@ node main.ts --deals 3 --source-env .env.prod --target-env .env.sandbox   # use 
 
 node main.ts --deals 3 --vehicles 3            # stage 4: vehicles linked to those deals, plus the links
 node main.ts --deals 3 --line-items 3          # stage 5: line items linked to those deals, plus the links
+node main.ts --deals 3 --vehicles 3 --line-items 3   # also links line items to vehicles
 node main.ts --deals 3 --products 3            # stage 6: the 3 newest products, on their own
 
 node --test                            # all tests
@@ -32,7 +33,7 @@ Node 24 runs the `.ts` files directly through type stripping. There is no build 
 
 ## Architecture
 
-`main.ts` checks the portals and looks up each portal's vehicles type, then `runStages` runs one stage per object type. A stage is a small generic function in `main.ts`: `copyNewest` (deals and products, the N newest records) or `copyLinkedToDeals` (companies, vehicles and line items, plus the deal links). `copyLinksBetween` links records copied in two different stages, such as companies to vehicles: it reads the production links with `fetchLinks`, then calls `copyLinks`. Each stage strings together the steps in `sync/steps/`:
+`main.ts` checks the portals and looks up each portal's vehicles type, then `runStages` runs one stage per object type. A stage is a small generic function in `main.ts`: `copyNewest` (deals and products, the N newest records) or `copyLinkedToDeals` (companies, vehicles and line items, plus the deal links). `copyLinksBetween` links records copied in two different stages, such as companies to vehicles or line items to vehicles: it reads the production links with `fetchLinks`, then calls `copyLinks`. Each stage strings together the steps in `sync/steps/`:
 
 1. **`verifyPortals`** runs once per run. It reads `/account-info/v3/details` for both tokens. The rule in `logic/portalRules.ts` refuses the run unless source = 51580259 and target = 52133352. This, together with the read-only production client, is what keeps production safe.
 2. **`findVehiclesTypes`** runs once per run, right after `verifyPortals`, whether or not `--vehicles` is set. It lists `GET /crm/v3/schemas` in each portal and matches the schema named `vehicles`, then logs both IDs. A portal with no vehicles object stops the run, so no URL is ever built with an empty type ID. The IDs go into each `PortalContext.vehiclesTypeId`.

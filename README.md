@@ -2,7 +2,7 @@
 
 Copies a set number of Interstate HubSpot records from production (portal 51580259) into the sandbox (portal 52133352), along with the links between them. Each record is created or updated by matching on its Excede ID, so running the script again updates records instead of duplicating them.
 
-It currently copies deals, companies, vehicles (a custom object), line items and products. Contacts are deferred. Records are chosen by starting from the N most recent deals and following their links, with each type capped at its own limit. Vehicles are also linked to the copied companies when both are copied. Products have no links in production, so the script copies the N most recent ones on their own.
+It currently copies deals, companies, vehicles (a custom object), line items and products. Contacts are deferred. Records are chosen by starting from the N most recent deals and following their links, with each type capped at its own limit. Vehicles are also linked to the copied companies and line items when both are copied. Products have no links in production, so the script copies the N most recent ones on their own.
 
 Data only flows from production to the sandbox. The production client cannot write, and the script refuses to run unless the target is the Interstate sandbox.
 

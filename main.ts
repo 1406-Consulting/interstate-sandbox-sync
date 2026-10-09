@@ -176,8 +176,6 @@ async function runStages(run: RunContext): Promise<StagesResult> {
   }
 
   if (limits.line_items > 0) {
-    // The contract also links line items to vehicles. That link is skipped
-    // until vehicles are copied (stage 4).
     const lineItems = await copyLinkedToDeals(
       run,
       deals,
@@ -186,6 +184,19 @@ async function runStages(run: RunContext): Promise<StagesResult> {
     );
     upserts.push(lineItems.result);
     links.push(lineItems.links);
+
+    // Line items and vehicles are copied in different stages, so their links
+    // are read and recreated separately.
+    if (vehicles !== null) {
+      const lineItemVehicleLinks = await copyLinksBetween(
+        run,
+        LINE_ITEM_CONTRACT,
+        lineItems.result,
+        VEHICLE_CONTRACT,
+        vehicles.result,
+      );
+      links.push(lineItemVehicleLinks);
+    }
   }
 
   if (limits.products > 0) {
